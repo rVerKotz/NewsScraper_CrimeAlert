@@ -38,26 +38,39 @@ def extract_location(text: str) -> tuple[str, str, float, float]:
     text_lower = text.lower()
     found: list[tuple[str, str, float, float, int]] = []
 
-    for city_name, (province, lat, lon) in CITY_COORDS.items():
-        count = text_lower.count(city_name)
-        if count > 0:
-            found.append((city_name, province, lat, lon, count))
-
-    for alias, canonical in CITY_ALIASES.items():
-        if canonical == alias:
-            continue
-        count = text_lower.count(alias)
-        if count > 0:
-            province, lat, lon = CITY_COORDS[canonical][0], CITY_COORDS[canonical][1], CITY_COORDS[canonical][2]
-            found.append((canonical, province, lat, lon, count))
+    def add_city(city_name: str, count: int = 1):
+        if count <= 0:
+            return
+        province, lat, lon = CITY_COORDS[city_name]
+        found.append((city_name, province, lat, lon, count))
 
     for city_name in CITY_COORDS:
         pattern = r"\b(" + re.escape(city_name) + r")\b"
         matches = re.findall(pattern, text_lower)
         count = len(matches)
         if count > 0:
-            province, lat, lon = CITY_COORDS[city_name]
-            found.append((city_name, province, lat, lon, count))
+            add_city(city_name, count)
+
+    for alias, canonical in CITY_ALIASES.items():
+        if canonical == alias or canonical not in CITY_COORDS:
+            continue
+        count = len(re.findall(r"\b" + re.escape(alias) + r"\b", text_lower))
+        if count > 0:
+            add_city(canonical, count)
+
+    for prefix in ["kota ", "kabupaten ", "kecamatan ", "kelurahan ", "desa "]:
+        for city_name in CITY_COORDS:
+            pattern = re.escape(prefix) + r"\b" + re.escape(city_name) + r"\b"
+            count = len(re.findall(pattern, text_lower))
+            if count > 0:
+                add_city(city_name, count)
+
+    for sub in ["utara", "selatan", "timur", "barat", "pusat"]:
+        for city_name in CITY_COORDS:
+            pattern = re.escape(city_name) + r"\s+" + re.escape(sub) + r"\b"
+            matches = re.findall(pattern, text_lower)
+            if matches:
+                add_city(city_name, len(matches))
 
     if found:
         found.sort(key=lambda x: x[4], reverse=True)

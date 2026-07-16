@@ -67,7 +67,10 @@ class DetikScraper(BaseScraper):
                     summary = summary_tag.get_text(strip=True) if summary_tag else ""
 
                     img_tag = item.select_one("img[src]")
-                    image_url = img_tag.get("src") if img_tag else ""
+                    image_url = ""
+                    if img_tag:
+                        image_url = (img_tag.get("data-src") or img_tag.get("src") or
+                                     img_tag.get("data-lazy-src") or img_tag.get("data-original") or "")
 
                     published_tag = item.select_one("time, .date, .media__date")
                     published = published_tag.get_text(strip=True) if published_tag else ""
@@ -115,8 +118,9 @@ class DetikScraper(BaseScraper):
 
         contents = (
             soup.select_one("article .detail__body-text, .detail__body, .detail__wrap")
-            or soup.select_one("article .content, .read__content, .itp_body")
-            or soup.select_one("article, .detail-content")
+            or soup.select_one("article .content, .read__content, .itp_body, .detail-text")
+            or soup.select_one("article, .detail-content, .article-body, main")
+            or soup.select_one(".entry-content, .content-body, .article-detail, #content")
         )
         if contents:
             paragraphs = contents.select("p")

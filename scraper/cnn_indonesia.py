@@ -67,7 +67,10 @@ class CNNIndonesiaScraper(BaseScraper):
                     summary = summary_tag.get_text(strip=True) if summary_tag else ""
 
                     img_tag = item.select_one("img[src]")
-                    image_url = img_tag.get("src") or img_tag.get("data-src") or ""
+                    image_url = ""
+                    if img_tag:
+                        image_url = (img_tag.get("data-src") or img_tag.get("src") or
+                                     img_tag.get("data-lazy-src") or img_tag.get("data-original") or "")
 
                     published_tag = item.select_one("time, .date, .article-date, .text-card__date")
                     published = published_tag.get_text(strip=True) if published_tag else ""
@@ -104,9 +107,10 @@ class CNNIndonesiaScraper(BaseScraper):
             tag.decompose()
 
         contents = (
-            soup.select_one("article .detail-text, .detail-text, .content-text")
-            or soup.select_one("article .content, .detail-content, .post-content")
-            or soup.select_one("article, .article-content, .read__content")
+            soup.select_one("article .detail-text, .detail-text, .content-text, .detail__body-text")
+            or soup.select_one("article .content, .detail-content, .post-content, .article-body")
+            or soup.select_one("article, .article-content, .read__content, main")
+            or soup.select_one(".entry-content, .content-body, .article-detail, #content")
         )
         if contents:
             paragraphs = contents.select("p")

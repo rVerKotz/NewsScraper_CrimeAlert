@@ -95,7 +95,8 @@ class SindonewsScraper(BaseScraper):
             img_tag = item.select_one("img[src]")
             image_url = ""
             if img_tag:
-                image_url = img_tag.get("src") or img_tag.get("data-src") or ""
+                image_url = (img_tag.get("data-src") or img_tag.get("src") or
+                             img_tag.get("data-lazy-src") or img_tag.get("data-original") or "")
 
             published_tag = item.select_one("time, .date, .news-date, .post-date, .article-date")
             published = published_tag.get_text(strip=True) if published_tag else ""
@@ -129,14 +130,17 @@ class SindonewsScraper(BaseScraper):
             tag.decompose()
 
         contents = (
-            soup.select_one(".detail-desc")
-            or soup.select_one("article .detail-text, .detail-text, .content-text")
-            or soup.select_one("article .content, .detail-content, .post-content")
-            or soup.select_one("article, .article-body, .read-content")
+            soup.select_one(".detail-desc, .detail-text, .content-text")
+            or soup.select_one("article .detail-text, .detail__body-text, .detail-body")
+            or soup.select_one("article .content, .detail-content, .post-content, .article-body")
+            or soup.select_one("article, .read-content, main")
+            or soup.select_one(".entry-content, .content-body, .article-detail, #content")
         )
         if contents:
-            text = contents.get_text(separator="\n", strip=True)
-            return text
+            paragraphs = contents.select("p")
+            if paragraphs:
+                return "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            return contents.get_text(separator="\n", strip=True)
         return ""
 
     def scrape_published(self, url: str) -> str:

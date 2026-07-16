@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from app.dedup_cache import init_cache, is_scraped, mark_scraped_batch, clear_cache
 from app.settings_manager import settings
 from config import CITY_COORDS
 from scraper import get_all_scrapers
@@ -59,6 +60,7 @@ class ArticleOut(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_cache()
     logger.info("CrimeAlert API started (stateless mode)")
     yield
 
@@ -123,6 +125,14 @@ def health():
     return {"status": "ok", "mode": "stateless"}
 
 
+# ── Cache endpoints ────────────────────────────────────────────
+
+@app.delete("/api/cache/clear")
+def cache_clear():
+    clear_cache()
+    return {"status": "cache_cleared"}
+
+
 # ── Scrape endpoint ───────────────────────────────────────────
 
 def _articles_to_csv(articles: list[Article]) -> str:
@@ -158,8 +168,17 @@ async def trigger_scrape(format: str = Query("json", pattern="^(json|csv)$")):
                 articles = await loop.run_in_executor(None, scraper.scrape)
                 for art in articles:
                     analyze_article(art)
-                all_articles.extend(articles)
-                logger.info("%s: %d articles", name, len(articles))
+
+                new_articles = []
+                for art in articles:
+                    if not is_scraped(art.url):
+                        new_articles.append(art)
+
+                if new_articles:
+                    mark_scraped_batch([a.url for a in new_articles])
+                    all_articles.extend(new_articles)
+
+                logger.info("%s: %d articles (%d new)", name, len(articles), len(new_articles))
             except Exception as e:
                 logger.exception("Scrape error for %s: %s", name, e)
 

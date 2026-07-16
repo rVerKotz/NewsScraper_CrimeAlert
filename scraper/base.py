@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -8,6 +8,25 @@ import requests
 from config import USER_AGENT, REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_article(article) -> "Article":
+    article.url = article.url or ""
+    article.title = article.title or ""
+    article.source = article.source or ""
+    article.summary = article.summary or ""
+    article.content = (article.content or "").strip() or (article.summary or article.title or "").strip() or "No content available"
+    article.published = article.published or ""
+    article.image_url = (article.image_url or "").strip() or "https://example.com/no-image.jpg"
+    article.province = (article.province or "").strip() or "Unknown"
+    article.city = (article.city or "").strip() or "Unknown"
+    article.latitude = 0.0 if article.latitude in (None, "", 0) else float(article.latitude)
+    article.longitude = 0.0 if article.longitude in (None, "", 0) else float(article.longitude)
+    article.crime_type = article.crime_type or ""
+    article.relevance_score = 0.0 if article.relevance_score in (None, "", 0) else float(article.relevance_score)
+    if not article.scraped_at:
+        article.scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return article
 
 
 @dataclass
@@ -28,8 +47,7 @@ class Article:
     scraped_at: str = ""
 
     def __post_init__(self):
-        if not self.scraped_at:
-            self.scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        normalize_article(self)
 
 
 class BaseScraper:
@@ -106,4 +124,5 @@ class BaseScraper:
                 content = self.scrape_content(article.url)
                 if content:
                     article.content = content
+            normalize_article(article)
         return articles

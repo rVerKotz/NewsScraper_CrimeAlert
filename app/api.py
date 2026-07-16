@@ -3,6 +3,7 @@ import csv
 import io
 import logging
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +14,7 @@ from app.dedup_cache import init_cache, is_scraped, mark_scraped_batch, clear_ca
 from app.settings_manager import settings
 from config import CITY_COORDS
 from scraper import get_all_scrapers
-from scraper.base import Article
+from scraper.base import Article, normalize_article
 from analyzer.crime_detector import analyze_article
 
 logger = logging.getLogger(__name__)
@@ -32,11 +33,11 @@ class SettingsOut(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    max_articles_per_source: int | None = None
-    request_timeout: int | None = None
-    scrape_interval_minutes: int | None = None
-    api_host: str | None = None
-    api_port: int | None = None
+    max_articles_per_source: Optional[int] = None
+    request_timeout: Optional[int] = None
+    scrape_interval_minutes: Optional[int] = None
+    api_host: Optional[str] = None
+    api_port: Optional[int] = None
 
 
 class ArticleOut(BaseModel):
@@ -169,16 +170,20 @@ async def trigger_scrape(format: str = Query("json", pattern="^(json|csv)$")):
                 for art in articles:
                     analyze_article(art)
 
-                new_articles = []
+                current_articles = []
                 for art in articles:
+                    normalize_article(art)
                     if not is_scraped(art.url):
-                        new_articles.append(art)
+                        current_articles.append(art)
 
-                if new_articles:
-                    mark_scraped_batch([a.url for a in new_articles])
-                    all_articles.extend(new_articles)
+                if not current_articles and articles:
+                    current_articles = articles
 
-                logger.info("%s: %d articles (%d new)", name, len(articles), len(new_articles))
+                if current_articles:
+                    mark_scraped_batch([a.url for a in current_articles])
+                all_articles.extend(articles)
+
+                logger.info("%s: %d articles (%d new)", name, len(articles), len(current_articles))
             except Exception as e:
                 logger.exception("Scrape error for %s: %s", name, e)
 
@@ -190,6 +195,7 @@ async def trigger_scrape(format: str = Query("json", pattern="^(json|csv)$")):
                 headers={"Content-Disposition": "attachment; filename=scraped_articles.csv"},
             )
 
+        normalized_articles = [normalize_article(a) for a in all_articles]
         return [ArticleOut(**{
             "url": a.url,
             "title": a.title,
@@ -205,4 +211,4 @@ async def trigger_scrape(format: str = Query("json", pattern="^(json|csv)$")):
             "crime_type": a.crime_type,
             "relevance_score": a.relevance_score,
             "scraped_at": a.scraped_at,
-        }) for a in all_articles]
+        }) for a in normalized_articles]

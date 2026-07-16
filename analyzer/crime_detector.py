@@ -3,6 +3,7 @@ import re
 from typing import Optional
 
 from config import CRIME_KEYWORDS, CRIME_CATEGORIES, CITY_COORDS, CITY_ALIASES
+from scraper.base import normalize_article
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ def extract_location(text: str) -> tuple[str, str, float, float]:
 
 
 def analyze_article(article) -> None:
+    normalize_article(article)
     combined = f"{article.title} {article.summary} {article.content}".strip()
     if not combined:
         combined = f"{article.title} {article.summary}"
@@ -98,7 +100,4 @@ def analyze_article(article) -> None:
     article.latitude = lat
     article.longitude = lon
 
-    if not article.province:
-        article.province = ""
-    if not article.city:
-        article.city = ""
+    normalize_article(article)

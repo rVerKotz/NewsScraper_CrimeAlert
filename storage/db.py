@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from config import DB_PATH
+from scraper.base import normalize_article
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +17,14 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_db():
-    conn = get_connection()
-    try:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS articles (
+def _ensure_articles_table(conn: sqlite3.Connection) -> None:
+    table_exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='articles'"
+    ).fetchone()
+
+    if table_exists is None:
+        conn.execute("""
+            CREATE TABLE articles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url TEXT UNIQUE NOT NULL,
                 title TEXT NOT NULL,
@@ -40,8 +44,79 @@ def init_db():
                 scraped_at TEXT NOT NULL DEFAULT '',
                 created_at TEXT DEFAULT (datetime('now', 'localtime')),
                 updated_at TEXT DEFAULT (datetime('now', 'localtime'))
-            );
+            )
+        """)
+        return
 
+    column_rows = conn.execute("PRAGMA table_info(articles)").fetchall()
+    column_names = {row[1] for row in column_rows}
+    column_notnull = {row[1]: row[3] for row in column_rows}
+    needs_rebuild = any(
+        column_notnull.get(col_name, 0) == 0
+        for col_name in ["content", "image_url", "province", "city", "latitude", "longitude", "scraped_at"]
+    ) or any(col not in column_names for col in ["content", "image_url", "province", "city", "latitude", "longitude", "scraped_at"])
+
+    if needs_rebuild:
+        conn.execute("ALTER TABLE articles RENAME TO articles_old")
+        conn.execute("""
+            CREATE TABLE articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                source TEXT NOT NULL,
+                summary TEXT DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                published TEXT DEFAULT '',
+                image_url TEXT NOT NULL DEFAULT '',
+                province TEXT NOT NULL DEFAULT '',
+                city TEXT NOT NULL DEFAULT '',
+                latitude REAL NOT NULL DEFAULT 0.0,
+                longitude REAL NOT NULL DEFAULT 0.0,
+                crime_type TEXT DEFAULT '',
+                relevance_score REAL DEFAULT 0.0,
+                is_read INTEGER DEFAULT 0,
+                is_warning_sent INTEGER DEFAULT 0,
+                scraped_at TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+        conn.execute("""
+            INSERT INTO articles (
+                id, url, title, source, summary, content, published, image_url,
+                province, city, latitude, longitude, crime_type, relevance_score,
+                is_read, is_warning_sent, scraped_at, created_at, updated_at
+            )
+            SELECT
+                id,
+                COALESCE(url, ''),
+                COALESCE(title, ''),
+                COALESCE(source, ''),
+                COALESCE(summary, ''),
+                COALESCE(content, ''),
+                COALESCE(published, ''),
+                COALESCE(image_url, ''),
+                COALESCE(province, ''),
+                COALESCE(city, ''),
+                COALESCE(latitude, 0.0),
+                COALESCE(longitude, 0.0),
+                COALESCE(crime_type, ''),
+                COALESCE(relevance_score, 0.0),
+                COALESCE(is_read, 0),
+                COALESCE(is_warning_sent, 0),
+                COALESCE(scraped_at, ''),
+                COALESCE(created_at, datetime('now', 'localtime')),
+                COALESCE(updated_at, datetime('now', 'localtime'))
+            FROM articles_old
+        """)
+        conn.execute("DROP TABLE articles_old")
+
+
+def init_db():
+    conn = get_connection()
+    try:
+        _ensure_articles_table(conn)
+        conn.executescript("""
             CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
             CREATE INDEX IF NOT EXISTS idx_articles_city ON articles(city);
             CREATE INDEX IF NOT EXISTS idx_articles_province ON articles(province);
@@ -76,6 +151,8 @@ def init_db():
 
 
 def save_article(article) -> Optional[int]:
+    init_db()
+    normalize_article(article)
     conn = get_connection()
     try:
         cursor = conn.execute(

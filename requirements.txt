@@ -5,3 +5,7 @@ rich>=13.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 python-dotenv>=1.0.0
+geopy>=2.5.0
+nlpaug>=1.1.11
+nltk>=3.8.1
+deep-translator>=1.11.4

@@ -25,7 +25,23 @@ def init_cache():
         conn.close()
 
 
+def _ensure_table():
+    conn = sqlite3.connect(str(DB_PATH))
+    try:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS scraped_urls (
+                url TEXT PRIMARY KEY,
+                scraped_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )"""
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def is_scraped(url: str) -> bool:
+    if not _scraped_urls:
+        init_cache()
     return url in _scraped_urls
 
 
@@ -43,6 +59,7 @@ def mark_scraped(url: str):
 
 
 def mark_scraped_batch(urls: list[str]):
+    _ensure_table()
     _scraped_urls.update(urls)
     conn = sqlite3.connect(str(DB_PATH))
     try:
@@ -58,6 +75,7 @@ def mark_scraped_batch(urls: list[str]):
 def clear_cache():
     global _scraped_urls
     _scraped_urls.clear()
+    _ensure_table()
     conn = sqlite3.connect(str(DB_PATH))
     try:
         conn.execute("DELETE FROM scraped_urls")

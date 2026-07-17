@@ -1,6 +1,0 @@
-INFO:     Started server process [4692]
-INFO:     Waiting for application startup.
-21:36:01 [INFO] app.dedup_cache: Dedup cache: loaded 0 URLs
-21:36:01 [INFO] app.api: CrimeAlert API started (stateless mode)
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)

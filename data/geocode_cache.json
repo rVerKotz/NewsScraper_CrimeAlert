@@ -1,0 +1,50 @@
+{
+  "bantaeng": {
+    "city": "Bantaeng",
+    "province": "Sulawesi Selatan",
+    "lat": -5.4709449,
+    "lon": 119.9871679
+  },
+  "seruyan": {
+    "city": "Seruyan",
+    "province": "Kalimantan Tengah",
+    "lat": -2.1201765,
+    "lon": 112.1650251
+  },
+  "mamasa": {
+    "city": "Mamasa",
+    "province": "Sulawesi Barat",
+    "lat": -3.0003659,
+    "lon": 119.3209087
+  },
+  "paris": {
+    "city": "Paris",
+    "province": "Île-de-France",
+    "lat": 48.8588897,
+    "lon": 2.320041
+  },
+  "ogan ilir": {
+    "city": "Ogan Ilir",
+    "province": "Sumatera Selatan",
+    "lat": -3.407719,
+    "lon": 104.650842
+  },
+  "amerika serikat": {
+    "city": "Amerika Serikat",
+    "province": "",
+    "lat": 39.7837304,
+    "lon": -100.445882
+  },
+  "capital": {
+    "city": "Capital",
+    "province": "British Columbia",
+    "lat": 48.455818,
+    "lon": -123.4733796
+  },
+  "city": {
+    "city": "City",
+    "province": "University of London",
+    "lat": 51.5276574,
+    "lon": -0.103605
+  }
+}

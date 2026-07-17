@@ -1,4 +1,0 @@
-API server at http://0.0.0.0:10000
-Swagger docs at http://0.0.0.0:10000/docs
-Endpoints: GET /api/health, GET/PUT /api/settings, POST /api/settings/reset, 
-POST /api/scrape, GET /api/sources, GET /api/cities

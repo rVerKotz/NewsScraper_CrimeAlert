@@ -1,9 +1,10 @@
 import logging
 import re
-from typing import Optional
 
 from config import CRIME_KEYWORDS, CRIME_CATEGORIES, CITY_COORDS, CITY_ALIASES
 from scraper.base import normalize_article
+from analyzer.geocoder import extract_candidate_locations, geocode_location
+from enhancer.paraphraser import parafrase_teks
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +77,21 @@ def extract_location(text: str) -> tuple[str, str, float, float]:
     if found:
         found.sort(key=lambda x: x[4], reverse=True)
         best = found[0]
-        return best[0], best[1], best[2], best[3]
+        city = best[0]
+        if re.search(r"\bkabupaten\s+" + re.escape(city) + r"\b", text_lower):
+            city = f"{city} Regency"
+        return city, best[1], best[2], best[3]
 
     if "jakarta" in text_lower or "dkj" in text_lower:
         return "jakarta", "DKI Jakarta", -6.2088, 106.8456
+
+    candidates = extract_candidate_locations(text)
+    for name, is_regency in candidates:
+        city, province, lat, lon = geocode_location(name)
+        if city:
+            if is_regency:
+                city = f"{city} Regency"
+            return city, province, lat, lon
 
     return "", "", 0.0, 0.0
 
@@ -99,5 +111,7 @@ def analyze_article(article) -> None:
     article.province = province
     article.latitude = lat
     article.longitude = lon
+
+    article.content = parafrase_teks(article.content)
 
     normalize_article(article)
